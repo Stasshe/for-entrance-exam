@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Book, Zap, Activity, Grid } from 'lucide-react';
 
 // KaTeX Formula Component
 const KatexFormula = ({ tex, isLoaded }) => {
@@ -12,7 +11,7 @@ const KatexFormula = ({ tex, isLoaded }) => {
           throwOnError: false,
           displayMode: true, // 数式をブロック表示で見やすくする
           macros: {
-            "\\dot": "\\dot", // ドット記法を明示
+            "\\dot": "dot", // ドット記法を明示
             "\\j": "j"        // 電気工学では虚数単位に j を使うため
           }
         });
@@ -220,7 +219,6 @@ const RLCCircuitExplorer = () => {
       {/* Header */}
       <header className="bg-slate-900 text-white p-4 shadow-md flex items-center justify-between">
         <h1 className="text-xl font-bold flex items-center gap-2">
-          <Activity className="w-6 h-6 text-blue-400" />
           RLC Circuit Analyzer (KaTeX Mode)
         </h1>
         <div className="flex bg-slate-800 rounded-lg p-1">
@@ -316,15 +314,12 @@ const RLCCircuitExplorer = () => {
 
           {!selectedElement ? (
             <div className="flex flex-col items-center justify-center h-48 text-slate-400 border-2 border-dashed border-slate-300 rounded-lg">
-              <Grid className="w-10 h-10 mb-2 opacity-50" />
               <p>回路図の要素を選択してください</p>
             </div>
           ) : (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
               <div className="flex items-center gap-3 mb-4 pb-2 border-b border-slate-200">
-                <div className="p-2 bg-blue-100 text-blue-700 rounded-lg">
-                  {selectedElement === 'source' ? <Zap size={24} /> : <Book size={24} />}
-                </div>
+                
                 <div>
                   <h3 className="text-lg font-bold text-slate-800">
                     {circuitData[circuitType].elements[selectedElement].name}
