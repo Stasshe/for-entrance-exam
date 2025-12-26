@@ -1,0 +1,238 @@
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_bump:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: 'patch'
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Get current version
+        id: current_version
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+      - name: Bump version
+        id: bump_version
+        run: |
+          # 現在のバージョンをsemverでインクリメント
+          CURRENT_VERSION="${{ steps.current_version.outputs.version }}"
+          BUMP_TYPE="${{ github.event.inputs.version_bump }}"
+          
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+          
+          case $BUMP_TYPE in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+          
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "Bumping version from $CURRENT_VERSION to $NEW_VERSION ($BUMP_TYPE)"
+
+      - name: Update package.json
+        run: |
+          # package.jsonのバージョンを更新
+          npm version ${{ steps.bump_version.outputs.new_version }} --no-git-tag-version --allow-same-version
+
+      - name: Get previous tag
+        id: prev_tag
+        run: |
+          git fetch --tags
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -z "$PREV_TAG" ]; then
+            echo "No previous tag found, using first commit"
+            PREV_TAG=$(git rev-list --max-parents=0 HEAD)
+          fi
+          echo "prev_tag=$PREV_TAG" >> $GITHUB_OUTPUT
+          echo "Previous tag: $PREV_TAG"
+
+      - name: Generate structured changelog
+        id: changelog
+        run: |
+          PREV_TAG="${{ steps.prev_tag.outputs.prev_tag }}"
+          
+          # Conventional Commits形式で分類
+          if [[ "$PREV_TAG" == *"v"* ]]; then
+            RANGE="$PREV_TAG..HEAD"
+          else
+            RANGE="HEAD"
+          fi
+          
+          # 各カテゴリのコミットを取得
+          FEATURES=$(git log $RANGE --pretty=format:"%s (%h)" --no-merges | grep -E "^feat(\(.+\))?:" | sed 's/^feat[^:]*: //' || true)
+          FIXES=$(git log $RANGE --pretty=format:"%s (%h)" --no-merges | grep -E "^fix(\(.+\))?:" | sed 's/^fix[^:]*: //' || true)
+          BREAKING=$(git log $RANGE --pretty=format:"%s (%h)" --no-merges | grep -E "^.+!:" || true)
+          PERF=$(git log $RANGE --pretty=format:"%s (%h)" --no-merges | grep -E "^perf(\(.+\))?:" | sed 's/^perf[^:]*: //' || true)
+          DOCS=$(git log $RANGE --pretty=format:"%s (%h)" --no-merges | grep -E "^docs(\(.+\))?:" | sed 's/^docs[^:]*: //' || true)
+          CHORE=$(git log $RANGE --pretty=format:"%s (%h)" --no-merges | grep -E "^chore(\(.+\))?:" | sed 's/^chore[^:]*: //' || true)
+          
+          # Changelogを構築
+          CHANGELOG=""
+          
+          if [ -n "$BREAKING" ]; then
+            CHANGELOG="${CHANGELOG}### ⚠️ Breaking Changes\n\n"
+            while IFS= read -r line; do
+              CHANGELOG="${CHANGELOG}- $line\n"
+            done <<< "$BREAKING"
+            CHANGELOG="${CHANGELOG}\n"
+          fi
+          
+          if [ -n "$FEATURES" ]; then
+            CHANGELOG="${CHANGELOG}### ✨ Features\n\n"
+            while IFS= read -r line; do
+              CHANGELOG="${CHANGELOG}- $line\n"
+            done <<< "$FEATURES"
+            CHANGELOG="${CHANGELOG}\n"
+          fi
+          
+          if [ -n "$FIXES" ]; then
+            CHANGELOG="${CHANGELOG}### 🐛 Bug Fixes\n\n"
+            while IFS= read -r line; do
+              CHANGELOG="${CHANGELOG}- $line\n"
+            done <<< "$FIXES"
+            CHANGELOG="${CHANGELOG}\n"
+          fi
+          
+          if [ -n "$PERF" ]; then
+            CHANGELOG="${CHANGELOG}### ⚡ Performance\n\n"
+            while IFS= read -r line; do
+              CHANGELOG="${CHANGELOG}- $line\n"
+            done <<< "$PERF"
+            CHANGELOG="${CHANGELOG}\n"
+          fi
+          
+          if [ -n "$DOCS" ]; then
+            CHANGELOG="${CHANGELOG}### 📝 Documentation\n\n"
+            while IFS= read -r line; do
+              CHANGELOG="${CHANGELOG}- $line\n"
+            done <<< "$DOCS"
+            CHANGELOG="${CHANGELOG}\n"
+          fi
+          
+          if [ -n "$CHORE" ]; then
+            CHANGELOG="${CHANGELOG}### 🔧 Chores\n\n"
+            while IFS= read -r line; do
+              CHANGELOG="${CHANGELOG}- $line\n"
+            done <<< "$CHORE"
+            CHANGELOG="${CHANGELOG}\n"
+          fi
+          
+          if [ -z "$CHANGELOG" ]; then
+            CHANGELOG="変更内容が検出されませんでした。\n"
+          fi
+          
+          # マルチライン出力
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json
+          git commit -m "chore(release): bump version to v${{ steps.bump_version.outputs.new_version }}"
+          git push
+
+      - name: Create and push tag
+        id: create_tag
+        run: |
+          TAG_NAME="v${{ steps.bump_version.outputs.new_version }}"
+          git tag -a "$TAG_NAME" -m "Release $TAG_NAME"
+          git push origin "$TAG_NAME"
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+
+      - name: Get current date
+        id: current_date
+        run: echo "date=$(date '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.create_tag.outputs.tag_name }}
+          name: ${{ steps.create_tag.outputs.tag_name }}
+          body: |
+            ## 🚀 Release ${{ steps.create_tag.outputs.tag_name }}
+            
+            **Released:** ${{ steps.current_date.outputs.date }}
+            **Bump Type:** ${{ github.event.inputs.version_bump }}
+            
+            ${{ steps.changelog.outputs.changelog }}
+            
+            ---
+            
+            ### 📦 Installation
+            
+            ```bash
+            pnpm install --frozen-lockfile
+            pnpm run dev
+            ```
+            
+            ### 🔗 Links
+            
+            - [Full Changelog](${{ github.server_url }}/${{ github.repository }}/compare/${{ steps.prev_tag.outputs.prev_tag }}...${{ steps.create_tag.outputs.tag_name }})
+            - [Repository](${{ github.server_url }}/${{ github.repository }})
+          draft: false
+          prerelease: ${{ github.event.inputs.prerelease }}
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release summary
+        run: |
+          echo "### ✅ Release Created Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.create_tag.outputs.tag_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Type:** ${{ github.event.inputs.version_bump }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Pre-release:** ${{ github.event.inputs.prerelease }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "[View Release](${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ steps.create_tag.outputs.tag_name }})" >> $GITHUB_STEP_SUMMARY

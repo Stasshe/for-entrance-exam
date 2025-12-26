@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RLC回路インタラクティブ学習 | 直列・並列回路の完全理解</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap');
+
+    body {
+      font-family: 'Noto Sans JP', sans-serif;
+      background-color: #fdfaf6;
+      /* Warm neutral background */
+      color: #333;
+    }
+
+    .math-font {
+      font-family: 'Times New Roman', serif;
+      font-style: italic;
+    }
+
+    .chart-container {
+      position: relative;
+      width: 100%;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+      height: 350px;
+      max-height: 400px;
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      background: transparent;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 16px;
+      width: 16px;
+      border-radius: 50%;
+      background: #4F46E5;
+      cursor: pointer;
+      margin-top: -6px;
+    }
+
+    input[type=range]::-webkit-slider-runnable-track {
+      width: 100%;
+      height: 4px;
+      cursor: pointer;
+      background: #E5E7EB;
+      border-radius: 2px;
+    }
+
+    .tab-active {
+      border-bottom: 3px solid #4F46E5;
+      color: #4F46E5;
+      font-weight: 700;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+      transition: all 0.3s ease;
+    }
+
+    .card:hover {
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+  </style>
+  <!-- Chosen Palette: Warm Neutral (Soft White/Cream Background), Indigo for Primary Actions, Slate for Text, Emerald/Rose for Data Viz contrast -->
+  <!-- Application Structure Plan: 
+        1. **Header & Context**: Brief intro to RLC circuits.
+        2. **Control Station**: A fixed or prominent area to set R, L, C, f, and V values. This drives all visualizations.
+        3. **Mode Switcher**: Tabs to toggle between "Series (直列)" and "Parallel (並列)" views. This prevents information overload and focuses the user on one mental model at a time.
+        4. **Dynamic Visualization Dashboard**:
+            - **Phasor Diagram (Vector)**: Visually explains the phase relationships (Lead/Lag) which is hard to grasp from text alone.
+            - **Resonance Curve**: Shows how Current/Impedance changes with Frequency, highlighting the resonance point.
+            - **Live Equations**: HTML-rendered math that updates numbers in real-time, bridging the gap between abstract formulas and concrete values.
+        5. **Comparison Matrix**: A summary table at the bottom to consolidate learning, directly taken from the source report.
+    -->
+  <!-- Visualization & Content Choices:
+        1. **Phasor Diagram**: Scatter Chart (Chart.js). Goal: Relationships. Visualizes vectors in the complex plane. X-axis = Real, Y-axis = Imaginary. Essential for understanding phase shifts.
+        2. **Frequency Response**: Line Chart (Chart.js). Goal: Change/Analysis. Shows the "tuning" effect of RLC circuits.
+        3. **Live Math**: HTML/JS text replacement. Goal: Inform. Shows the exact calculation steps described in the report.
+        4. **Comparison Table**: HTML Table. Goal: Organize/Compare. Synthesizes the differences clearly.
+    -->
+  <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+</head>
+
+<body class="bg-[#fdfaf6] min-h-screen pb-12">
+
+  <!-- Header Section -->
+  <header class="bg-white border-b border-gray-200 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <h1 class="text-2xl font-bold text-gray-800 tracking-tight">RLC回路<span class="text-indigo-600">Explorer</span>
+      </h1>
+      <div class="text-sm text-gray-500 hidden sm:block">直列・並列回路の挙動を可視化</div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+    <!-- Intro Text -->
+    <section class="prose max-w-none text-gray-600">
+      <p class="text-lg leading-relaxed">
+        このアプリケーションは、抵抗(<span class="math-font">R</span>)、コイル(<span class="math-font">L</span>)、コンデンサー(<span
+          class="math-font">C</span>)を組み合わせた回路の振る舞いを直感的に理解するためのツールです。
+        パラメータを操作し、直列・並列それぞれの回路における<strong>インピーダンス</strong>、<strong>電圧・電流の位相関係</strong>、そして<strong>共振現象</strong>を確認してください。
+      </p>
+    </section>
+
+    <!-- Control Station -->
+    <section class="card p-6 border-l-4 border-indigo-500">
+      <div class="flex flex-col md:flex-row justify-between items-center mb-4">
+        <h2 class="text-xl font-bold text-gray-800">回路パラメータ設定</h2>
+        <span class="text-sm bg-indigo-50 text-indigo-700 py-1 px-3 rounded-full" id="resonance-indicator">共振周波数:
+          計算中...</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        <!-- R Control -->
+        <div class="space-y-2">
+          <div class="flex justify-between">
+            <label class="text-sm font-medium text-gray-700">抵抗 <span class="math-font">R</span> (Ω)</label>
+            <span id="val-r" class="text-sm font-bold text-indigo-600">10</span>
+          </div>
+          <input type="range" id="input-r" min="1" max="100" step="1" value="10">
+        </div>
+
+        <!-- L Control -->
+        <div class="space-y-2">
+          <div class="flex justify-between">
+            <label class="text-sm font-medium text-gray-700">コイル <span class="math-font">L</span> (mH)</label>
+            <span id="val-l" class="text-sm font-bold text-indigo-600">10</span>
+          </div>
+          <input type="range" id="input-l" min="0.1" max="100" step="0.1" value="10">
+        </div>
+
+        <!-- C Control -->
+        <div class="space-y-2">
+          <div class="flex justify-between">
+            <label class="text-sm font-medium text-gray-700">コンデンサ <span class="math-font">C</span> (μF)</label>
+            <span id="val-c" class="text-sm font-bold text-indigo-600">100</span>
+          </div>
+          <input type="range" id="input-c" min="1" max="500" step="1" value="100">
+        </div>
+
+        <!-- Frequency Control -->
+        <div class="space-y-2">
+          <div class="flex justify-between">
+            <label class="text-sm font-medium text-gray-700">周波数 <span class="math-font">f</span> (Hz)</label>
+            <span id="val-f" class="text-sm font-bold text-indigo-600">50</span>
+          </div>
+          <input type="range" id="input-f" min="10" max="1000" step="10" value="50">
+        </div>
+
+        <!-- Voltage Control -->
+        <div class="space-y-2">
+          <div class="flex justify-between">
+            <label class="text-sm font-medium text-gray-700">電源電圧 <span class="math-font">V</span> (V)</label>
+            <span id="val-v" class="text-sm font-bold text-indigo-600">100</span>
+          </div>
+          <input type="range" id="input-v" min="10" max="200" step="10" value="100">
+        </div>
+      </div>
+    </section>
+
+    <!-- Mode Selection Tabs -->
+    <div class="flex border-b border-gray-200 space-x-8">
+      <button onclick="switchMode('series')" id="tab-series"
+        class="pb-4 px-2 text-lg font-medium transition-colors duration-200 tab-active">
+        直列回路 (Series)
+      </button>
+      <button onclick="switchMode('parallel')" id="tab-parallel"
+        class="pb-4 px-2 text-lg font-medium text-gray-500 hover:text-gray-700 transition-colors duration-200">
+        並列回路 (Parallel)
+      </button>
+    </div>
+
+    <!-- Main Dashboard Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+      <!-- Left Column: Calculation & Theory (4 cols) -->
+      <div class="lg:col-span-5 space-y-6">
+
+        <!-- Theory Card -->
+        <div class="card p-6">
+          <h3 class="text-lg font-bold text-gray-800 mb-2 flex items-center">
+            <span class="w-2 h-8 bg-blue-500 rounded-full mr-3"></span>
+            基本原理
+          </h3>
+          <div id="theory-content">
+            <!-- Dynamic Content injected by JS -->
+          </div>
+        </div>
+
+        <!-- Live Math Card -->
+        <div class="card p-6 bg-slate-50 border border-slate-200">
+          <h3 class="text-lg font-bold text-gray-800 mb-4">リアルタイム計算式</h3>
+          <div class="space-y-4 font-mono text-sm sm:text-base">
+
+            <!-- Reactance -->
+            <div class="pb-2 border-b border-gray-200">
+              <p class="text-gray-500 text-xs mb-1">リアクタンス (共通)</p>
+              <p><span class="math-font">X<sub>L</sub></span> = 2πfL = <span id="calc-xl"
+                  class="font-bold text-emerald-600"></span> Ω</p>
+              <p><span class="math-font">X<sub>C</sub></span> = 1/(2πfC) = <span id="calc-xc"
+                  class="font-bold text-rose-600"></span> Ω</p>
+            </div>
+
+            <!-- Impedance / Current -->
+            <div id="calc-main">
+              <!-- Injected by JS -->
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Visualization (8 cols) -->
+      <div class="lg:col-span-7 space-y-6">
+
+        <!-- Chart 1: Phasor Diagram -->
+        <div class="card p-6">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold text-gray-800">フェーザ図 (ベクトル関係)</h3>
+            <div class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+              <span id="phasor-legend-1" class="inline-block w-3 h-3 rounded-full mr-1 bg-red-500"></span><span
+                id="phasor-text-1">R</span>
+              <span id="phasor-legend-2" class="inline-block w-3 h-3 rounded-full mr-1 ml-2 bg-blue-500"></span><span
+                id="phasor-text-2">L</span>
+              <span id="phasor-legend-3" class="inline-block w-3 h-3 rounded-full mr-1 ml-2 bg-green-500"></span><span
+                id="phasor-text-3">C</span>
+              <span id="phasor-legend-4" class="inline-block w-3 h-3 rounded-full mr-1 ml-2 bg-purple-600"></span>Total
+            </div>
+          </div>
+          <p class="text-sm text-gray-600 mb-4" id="phasor-desc">
+            <!-- Dynamic description -->
+          </p>
+          <div class="chart-container">
+            <canvas id="phasorChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart 2: Frequency Response -->
+        <div class="card p-6">
+          <h3 class="text-lg font-bold text-gray-800 mb-2">周波数特性 (共振曲線)</h3>
+          <p class="text-sm text-gray-600 mb-4">
+            周波数を変化させたときの回路電流の変化。ピーク部分が共振点です。
+          </p>
+          <div class="chart-container">
+            <canvas id="resonanceChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Comparison Summary Section -->
+    <section class="mt-12">
+      <h2 class="text-2xl font-bold text-gray-800 mb-6">直列と並列の比較まとめ</h2>
+      <div class="overflow-x-auto card">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">項目
+              </th>
+              <th scope="col"
+                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider text-indigo-600">
+                直列回路 (Series)</th>
+              <th scope="col"
+                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider text-pink-600">
+                並列回路 (Parallel)</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200 text-sm">
+            <tr>
+              <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">共通量</td>
+              <td class="px-6 py-4 whitespace-nowrap">電流 <span class="math-font">I</span></td>
+              <td class="px-6 py-4 whitespace-nowrap">電圧 <span class="math-font">V</span></td>
+            </tr>
+            <tr>
+              <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">加算される量</td>
+              <td class="px-6 py-4 whitespace-nowrap">電圧 (<span class="math-font">V<sub>total</sub> =
+                  ΣV<sub>i</sub></span>)</td>
+              <td class="px-6 py-4 whitespace-nowrap">電流 (<span class="math-font">I<sub>total</sub> =
+                  ΣI<sub>i</sub></span>)</td>
+            </tr>
+            <tr>
+              <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">合成インピーダンス</td>
+              <td class="px-6 py-4 whitespace-nowrap"><span class="math-font">Z = R + j(X<sub>L</sub> -
+                  X<sub>C</sub>)</span></td>
+              <td class="px-6 py-4 whitespace-nowrap"><span class="math-font">1/Z = 1/R + j(1/X<sub>C</sub> -
+                  1/X<sub>L</sub>)</span></td>
+            </tr>
+            <tr>
+              <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">共振時の特徴</td>
+              <td class="px-6 py-4 whitespace-nowrap">インピーダンス最小、<strong>電流最大</strong></td>
+              <td class="px-6 py-4 whitespace-nowrap">インピーダンス最大、<strong>電流最小</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="bg-gray-800 text-white py-8 mt-12">
+    <div class="max-w-7xl mx-auto px-4 text-center">
+      <p class="text-sm opacity-75">RLC回路数式詳解レポートに基づくインタラクティブ・ビジュアライザー</p>
+    </div>
+  </footer>
+
+  <script>
+    // --- State Management ---
+        const state = {
+            r: 10,
+            l: 10, // mH
+            c: 100, // uF
+            f: 50,
+            v: 100,
+            mode: 'series' // 'series' or 'parallel'
+        };
+
+        // --- DOM Elements ---
+        const els = {
+            r: document.getElementById('input-r'),
+            l: document.getElementById('input-l'),
+            c: document.getElementById('input-c'),
+            f: document.getElementById('input-f'),
+            v: document.getElementById('input-v'),
+            valR: document.getElementById('val-r'),
+            valL: document.getElementById('val-l'),
+            valC: document.getElementById('val-c'),
+            valF: document.getElementById('val-f'),
+            valV: document.getElementById('val-v'),
+            resonanceInd: document.getElementById('resonance-indicator'),
+            theoryContent: document.getElementById('theory-content'),
+            calcXl: document.getElementById('calc-xl'),
+            calcXc: document.getElementById('calc-xc'),
+            calcMain: document.getElementById('calc-main'),
+            phasorDesc: document.getElementById('phasor-desc'),
+            tabSeries: document.getElementById('tab-series'),
+            tabParallel: document.getElementById('tab-parallel'),
+            phasorLegend1: document.getElementById('phasor-legend-1'),
+            phasorText1: document.getElementById('phasor-text-1'),
+            phasorLegend2: document.getElementById('phasor-legend-2'),
+            phasorText2: document.getElementById('phasor-text-2'),
+            phasorLegend3: document.getElementById('phasor-legend-3'),
+            phasorText3: document.getElementById('phasor-text-3')
+        };
+
+        // --- Chart Instances ---
+        let phasorChartInstance = null;
+        let resonanceChartInstance = null;
+
+        // --- Initialization ---
+        function init() {
+            // Add Listeners
+            ['r', 'l', 'c', 'f', 'v'].forEach(key => {
+                els[key].addEventListener('input', (e) => {
+                    state[key] = parseFloat(e.target.value);
+                    updateDisplayValues();
+                    updateApp();
+                });
+            });
+
+            updateDisplayValues();
+            initCharts();
+            updateApp();
+        }
+
+        function updateDisplayValues() {
+            els.valR.textContent = state.r;
+            els.valL.textContent = state.l;
+            els.valC.textContent = state.c;
+            els.valF.textContent = state.f;
+            els.valV.textContent = state.v;
+        }
+
+        function switchMode(mode) {
+            state.mode = mode;
+            
+            // Tab Styles
+            if (mode === 'series') {
+                els.tabSeries.classList.add('tab-active', 'text-indigo-600');
+                els.tabSeries.classList.remove('text-gray-500');
+                els.tabParallel.classList.remove('tab-active', 'text-indigo-600');
+                els.tabParallel.classList.add('text-gray-500');
+            } else {
+                els.tabParallel.classList.add('tab-active', 'text-indigo-600');
+                els.tabParallel.classList.remove('text-gray-500');
+                els.tabSeries.classList.remove('tab-active', 'text-indigo-600');
+                els.tabSeries.classList.add('text-gray-500');
+            }
+
+            updateApp();
+        }
+
+        // --- Physics Calculations ---
+        function calculatePhysics() {
+            const omega = 2 * Math.PI * state.f;
+            const L_H = state.l / 1000; // mH -> H
+            const C_F = state.c / 1000000; // uF -> F
+            
+            const Xl = omega * L_H;
+            const Xc = 1 / (omega * C_F);
+            
+            // Resonance Freq
+            const f0 = 1 / (2 * Math.PI * Math.sqrt(L_H * C_F));
+
+            let results = { Xl, Xc, f0, omega, L_H, C_F };
+
+            if (state.mode === 'series') {
+                // Z = R + j(Xl - Xc)
+                const X_net = Xl - Xc;
+                const Z_mag = Math.sqrt(state.r ** 2 + X_net ** 2);
+                const current = state.v / Z_mag;
+                const phase = Math.atan2(X_net, state.r) * (180 / Math.PI); // degrees
+                
+                // Voltages
+                const Vr = state.r * current;
+                const Vl = Xl * current;
+                const Vc = Xc * current;
+
+                results = { ...results, X_net, Z_mag, current, phase, Vr, Vl, Vc };
+            } else {
+                // Parallel: Use Admittance Y
+                // 1/Z = Y = 1/R + j(1/Xc - 1/Xl)  Note: Susceptance B = Bc - Bl
+                // Bc = 1/Xc, Bl = 1/Xl
+                const Bc = 1/Xc;
+                const Bl = 1/Xl;
+                const B_net = Bc - Bl; // Net susceptance
+                const G = 1/state.r; // Conductance
+                
+                const Y_mag = Math.sqrt(G**2 + B_net**2);
+                const Z_mag = 1 / Y_mag;
+                const currentTotal = state.v * Y_mag;
+                
+                // Current leads voltage if Bc > Bl (capacitive)
+                // Phase angle of Current relative to Voltage
+                const phase = Math.atan2(B_net, G) * (180 / Math.PI);
+
+                // Branch Currents
+                const Ir = state.v / state.r;
+                const Il = state.v / Xl;
+                const Ic = state.v / Xc;
+
+                results = { ...results, B_net, Y_mag, Z_mag, currentTotal, phase, Ir, Il, Ic };
+            }
+
+            return results;
+        }
+
+        // --- Update UI Content ---
+        function updateApp() {
+            const data = calculatePhysics();
+
+            // 1. Resonance Indicator
+            els.resonanceInd.textContent = `共振周波数 f0: ${data.f0.toFixed(1)} Hz`;
+            
+            // 2. Reactance Display
+            els.calcXl.textContent = data.Xl.toFixed(2);
+            els.calcXc.textContent = data.Xc.toFixed(2);
+
+            // 3. Theory & Math Content
+            if (state.mode === 'series') {
+                // Theory Text
+                els.theoryContent.innerHTML = `
+                    <p class="mb-2"><strong>直列回路の鉄則：</strong> すべての素子に流れる<span class="text-indigo-600 font-bold">電流 I が共通</span>です。</p>
+                    <p class="text-sm text-gray-600">インピーダンスが大きい素子ほど、より多くの電圧を分担します。コイルとコンデンサの電圧は互いに打ち消し合う（180°位相差）関係にあります。</p>
+                `;
+                
+                // Legend
+                els.phasorText1.textContent = "VR (抵抗電圧)";
+                els.phasorText2.textContent = "VL (コイル電圧)";
+                els.phasorText3.textContent = "VC (コンデンサ電圧)";
+                els.phasorDesc.textContent = "電流 I を基準(0°)とした電圧ベクトルの関係。全体の電圧(紫)は各電圧ベクトルの和です。";
+
+                // Main Calc
+                els.calcMain.innerHTML = `
+                    <div class="py-2">
+                        <p class="text-gray-500 text-xs mb-1">合成インピーダンス Z</p>
+                        <p class="text-lg">|<span class="math-font">Z</span>| = √(${state.r}² + (${data.Xl.toFixed(1)} - ${data.Xc.toFixed(1)})²) </p>
+                        <p class="text-xl font-bold text-gray-800">= ${data.Z_mag.toFixed(2)} Ω</p>
+                    </div>
+                    <div class="py-2 border-t border-gray-200">
+                        <p class="text-gray-500 text-xs mb-1">回路電流 I</p>
+                        <p><span class="math-font">I</span> = V / |Z| = ${state.v} / ${data.Z_mag.toFixed(2)}</p>
+                        <p class="text-xl font-bold text-indigo-600">= ${data.current.toFixed(3)} A</p>
+                        <p class="text-sm text-gray-500 mt-1">位相差: ${data.phase.toFixed(1)}° (${data.phase > 0 ? '電圧が進み(誘導性)' : data.phase < 0 ? '電圧が遅れ(容量性)' : '同相(共振)'})</p>
+                    </div>
+                `;
+            } else {
+                // Parallel Theory
+                els.theoryContent.innerHTML = `
+                    <p class="mb-2"><strong>並列回路の鉄則：</strong> すべての素子にかかる<span class="text-pink-600 font-bold">電圧 V が共通</span>です。</p>
+                    <p class="text-sm text-gray-600">インピーダンスが小さい素子ほど、電流が流れ込みやすくなります。コイル電流とコンデンサ電流は互いに逆向きに流れます。</p>
+                `;
+
+                // Legend
+                els.phasorText1.textContent = "IR (抵抗電流)";
+                els.phasorText2.textContent = "IL (コイル電流)"; // Note: In parallel, IL lags V by 90, drawn downwards usually relative to V
+                els.phasorText3.textContent = "IC (コンデンサ電流)"; // IC leads V by 90, drawn upwards
+                els.phasorDesc.textContent = "電圧 V を基準(0°)とした電流ベクトルの関係。全体の電流(紫)は各電流ベクトルの和です。";
+
+                // Main Calc
+                els.calcMain.innerHTML = `
+                    <div class="py-2">
+                        <p class="text-gray-500 text-xs mb-1">合成インピーダンス Z</p>
+                        <p class="text-lg"><span class="math-font">Z</span> = 1 / |Y|</p>
+                        <p class="text-xl font-bold text-gray-800">= ${data.Z_mag.toFixed(2)} Ω</p>
+                    </div>
+                    <div class="py-2 border-t border-gray-200">
+                        <p class="text-gray-500 text-xs mb-1">全体電流 I_total</p>
+                        <p class="text-xl font-bold text-pink-600">= ${data.currentTotal.toFixed(3)} A</p>
+                        <p class="text-sm text-gray-500 mt-1">位相差: ${data.phase.toFixed(1)}° (${data.phase > 0 ? '電流が進み(容量性)' : data.phase < 0 ? '電流が遅れ(誘導性)' : '同相(共振)'})</p>
+                    </div>
+                    <div class="py-1 text-xs text-gray-500 grid grid-cols-3 gap-2 mt-2">
+                        <div>IR: ${data.Ir.toFixed(2)}A</div>
+                        <div>IL: ${data.Il.toFixed(2)}A</div>
+                        <div>IC: ${data.Ic.toFixed(2)}A</div>
+                    </div>
+                `;
+            }
+
+            updateCharts(data);
+        }
+
+        // --- Chart Logic ---
+        function initCharts() {
+            // 1. Phasor Chart (Scatter)
+            const ctxPhasor = document.getElementById('phasorChart').getContext('2d');
+            phasorChartInstance = new Chart(ctxPhasor, {
+                type: 'scatter',
+                data: {
+                    datasets: []
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'center',
+                            title: { display: true, text: '実軸 (Real)' },
+                            grid: { color: '#e5e7eb' }
+                        },
+                        y: {
+                            type: 'linear',
+                            position: 'center',
+                            title: { display: true, text: '虚軸 (Imaginary)' },
+                            grid: { color: '#e5e7eb' }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': (' + context.raw.x.toFixed(1) + ', ' + context.raw.y.toFixed(1) + ')';
+                                }
+                            }
+                        },
+                        legend: { display: false }
+                    }
+                }
+            });
+
+            // 2. Resonance Chart (Line)
+            const ctxResonance = document.getElementById('resonanceChart').getContext('2d');
+            resonanceChartInstance = new Chart(ctxResonance, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '電流 I (A)',
+                        borderColor: '#4F46E5',
+                        backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: true,
+                        data: []
+                    },
+                    {
+                        label: '現在位置',
+                        borderColor: '#dc2626',
+                        backgroundColor: '#dc2626',
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        showLine: false,
+                        data: []
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            title: { display: true, text: '周波数 (Hz)' },
+                            min: 0,
+                            max: 1000
+                        },
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: '電流 (A)' }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            intersect: false,
+                            mode: 'index',
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateCharts(data) {
+            // --- Update Phasor Chart ---
+            // Series: Vectors are Voltages. Reference I is at 0 degrees.
+            // Parallel: Vectors are Currents. Reference V is at 0 degrees.
+            
+            let vecR, vecL, vecC, vecTotal;
+            let maxVal = 0;
+
+            if (state.mode === 'series') {
+                // VR is real (phase 0)
+                vecR = { x: data.Vr, y: 0 };
+                // VL is +90 deg
+                vecL = { x: 0, y: data.Vl };
+                // VC is -90 deg
+                vecC = { x: 0, y: -data.Vc };
+                // Total V = vector sum
+                vecTotal = { x: data.Vr, y: data.Vl - data.Vc };
+                
+                maxVal = Math.max(data.Vr, data.Vl, data.Vc, Math.abs(data.Vl - data.Vc), data.Vr) * 1.2;
+            } else {
+                // Parallel
+                // IR is real (phase 0)
+                vecR = { x: data.Ir, y: 0 };
+                // IC is +90 deg (Current leads Voltage in Cap)
+                vecC = { x: 0, y: data.Ic };
+                // IL is -90 deg (Current lags Voltage in Ind)
+                vecL = { x: 0, y: -data.Il };
+                // Total I
+                vecTotal = { x: data.Ir, y: data.Ic - data.Il };
+
+                maxVal = Math.max(data.Ir, data.Ic, data.Il, Math.abs(data.Ic - data.Il), data.Ir) * 1.2;
+            }
+
+            // Create "arrow" datasets (Line from 0,0 to point)
+            const datasets = [
+                {
+                    label: state.mode === 'series' ? 'VR' : 'IR',
+                    data: [{x:0, y:0}, vecR],
+                    borderColor: '#ef4444', // Red
+                    showLine: true, borderWidth: 3
+                },
+                {
+                    label: state.mode === 'series' ? 'VL' : 'IL',
+                    data: [{x:0, y:0}, vecL], // Note: For visual clarity, we originate from 0. 
+                    borderColor: '#3b82f6', // Blue
+                    showLine: true, borderWidth: 3
+                },
+                {
+                    label: state.mode === 'series' ? 'VC' : 'IC',
+                    data: [{x:0, y:0}, vecC],
+                    borderColor: '#22c55e', // Green
+                    showLine: true, borderWidth: 3
+                },
+                {
+                    label: 'Total',
+                    data: [{x:0, y:0}, vecTotal],
+                    borderColor: '#9333ea', // Purple
+                    borderDash: [5, 5],
+                    showLine: true, borderWidth: 2
+                }
+            ];
+
+            phasorChartInstance.data.datasets = datasets;
+            phasorChartInstance.options.scales.x.max = maxVal;
+            phasorChartInstance.options.scales.x.min = -maxVal * 0.2; // slight shift
+            phasorChartInstance.options.scales.y.max = maxVal;
+            phasorChartInstance.options.scales.y.min = -maxVal;
+            phasorChartInstance.update();
+
+
+            // --- Update Resonance Chart ---
+            // Generate data points for f from 10 to 1000 Hz
+            const points = [];
+            const L_H = state.l / 1000;
+            const C_F = state.c / 1000000;
+            
+            // Adaptive sampling: more points near f0
+            const f0 = data.f0;
+            const range = 1000;
+            
+            for (let f = 10; f <= range; f += 10) {
+                 const w = 2 * Math.PI * f;
+                 let I_mag;
+
+                 if (state.mode === 'series') {
+                     const Xl = w * L_H;
+                     const Xc = 1 / (w * C_F);
+                     const Z = Math.sqrt(state.r**2 + (Xl - Xc)**2);
+                     I_mag = state.v / Z;
+                 } else {
+                     const Bc = w * C_F;
+                     const Bl = 1 / (w * L_H);
+                     const Y = Math.sqrt((1/state.r)**2 + (Bc - Bl)**2);
+                     I_mag = state.v * Y;
+                 }
+                 points.push({x: f, y: I_mag});
+            }
+
+            // Current Position Marker
+            const currentPoint = [{x: state.f, y: state.mode === 'series' ? data.current : data.currentTotal}];
+
+            resonanceChartInstance.data.datasets[0].data = points;
+            resonanceChartInstance.data.datasets[1].data = currentPoint;
+            
+            // Update Labels (Optional for linear scale if data is x/y objects)
+            // But we need to update scale max if resonance is huge
+            // resonanceChartInstance.options.scales.y.max = Math.max(...points.map(p => p.y)) * 1.1; 
+            
+            resonanceChartInstance.update();
+        }
+
+        // Start
+        window.onload = init;
+  </script>
+</body>
+
+</html>
