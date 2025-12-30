@@ -37,8 +37,8 @@ layout: default
 
 /* 列幅指定 */
 .year-table col.col-year { width: 60px; }   /* 西暦 */
-.year-table col.col-politics { width: 280px; } /* 政治 */
-.year-table col.col-economy { width: 280px; }  /* 経済 */
+.year-table col.col-politics { width: 220px; } /* 政治 */
+.year-table col.col-economy { width: 220px; }  /* 経済 */
 .year-table col.col-pm { width: 140px; }      /* 首相 */
 .year-table col.col-president { width: 140px; } /* 大統領 */
 
@@ -57,8 +57,6 @@ layout: default
 </style>
 
 <h1>2000年以降の日本・米国政治経済年表</h1>
-
-<h2>2000年</h2>
 
 <div class="year-table-container">
 <table class="year-table">
@@ -523,6 +521,7 @@ layout: default
 </tbody>
 </table>
 </div>
+
 ---
 
 ## その他重要な法改正・制度変更
