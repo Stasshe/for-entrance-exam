@@ -6,7 +6,6 @@ layout: default
 <style>
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  margin: 20px;
   background-color: #f5f5f5;
 }
 h1 {
@@ -21,6 +20,7 @@ h1 {
   background-color: white;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  margin: 1em 0;
 }
 .year-table {
   width: 100%;
@@ -31,7 +31,7 @@ h1 {
 .year-table th,
 .year-table td {
   border: 1px solid #ddd;
-  padding: 12px;
+  padding: 8px;
   vertical-align: top;
   text-align: left;
 }
@@ -61,7 +61,7 @@ h1 {
   }
   .year-table th,
   .year-table td {
-    padding: 8px;
+    padding: 4px;
   }
 }
 </style>
