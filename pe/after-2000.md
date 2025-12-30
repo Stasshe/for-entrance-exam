@@ -6,7 +6,6 @@ layout: default
 # 2000年以降の日本・米国政治経済年表
 
 ## 2000年
-<div>
 <table>
 <thead>
 <tr>
@@ -461,7 +460,6 @@ layout: default
 </tr>
 </tbody>
 </table>
-</div>
 ---
 
 ## その他重要な法改正・制度変更
