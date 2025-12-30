@@ -1,9 +1,8 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>2000年以降の日本・米国政治経済年表（改訂版）</title>
+---
+title: 2000年以降の日本・米国政治経済年表
+layout: default
+---
+
 <style>
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -66,8 +65,6 @@ h1 {
   }
 }
 </style>
-</head>
-<body>
 
 <h1>2000年以降の日本・米国政治経済年表（改訂版）</h1>
 
