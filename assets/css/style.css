@@ -1,0 +1,28 @@
+/* テーブルのレスポンシブ対応 */
+table {
+  width: 100%;
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch; /* iOS用スムーズスクロール */
+  font-size: 14px; /* スマホでは文字を小さく */
+}
+
+table th,
+table td {
+  min-width: 80px; /* 最小幅設定 */
+  padding: 8px;
+  word-wrap: break-word; /* 長い単語を折り返す */
+}
+
+/* スマホ向けの追加調整 */
+@media (max-width: 768px) {
+  table {
+    font-size: 12px; /* さらに小さく */
+  }
+  
+  table th,
+  table td {
+    min-width: 60px;
+    padding: 4px;
+  }
+}
