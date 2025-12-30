@@ -3,10 +3,70 @@ title: 2000年以降の日本・米国政治経済年表
 layout: default
 ---
 
-# 2000年以降の日本・米国政治経済年表
+<style>
+/* after-2000.md専用スタイル */
+.year-table-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid #ddd;
+  margin: 1em 0;
+}
 
-## 2000年
-<table>
+.year-table {
+  width: 100%;
+  min-width: 900px; /* 最小横幅を指定＝横スクロール発動 */
+  border-collapse: collapse;
+  font-size: 14px;
+  table-layout: fixed; /* 列幅を固定制御 */
+}
+
+.year-table th,
+.year-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  vertical-align: top;
+  overflow-wrap: break-word;
+}
+
+.year-table th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+  text-align: center;
+}
+
+/* 列幅指定 */
+.year-table col.col-year { width: 60px; }   /* 西暦 */
+.year-table col.col-politics { width: 280px; } /* 政治 */
+.year-table col.col-economy { width: 280px; }  /* 経済 */
+.year-table col.col-pm { width: 140px; }      /* 首相 */
+.year-table col.col-president { width: 140px; } /* 大統領 */
+
+/* スマホ向け調整 */
+@media (max-width: 768px) {
+  .year-table {
+    font-size: 12px;
+    min-width: 800px; /* スマホでもスクロール */
+  }
+  
+  .year-table th,
+  .year-table td {
+    padding: 4px;
+  }
+}
+</style>
+
+<h1>2000年以降の日本・米国政治経済年表</h1>
+
+<div class="year-table-container">
+<table class="year-table">
+<colgroup>
+  <col class="col-year">
+  <col class="col-politics">
+  <col class="col-economy">
+  <col class="col-pm">
+  <col class="col-president">
+</colgroup>
 <thead>
 <tr>
   <th>西暦</th>
