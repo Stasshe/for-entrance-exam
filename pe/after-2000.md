@@ -58,6 +58,8 @@ layout: default
 
 <h1>2000年以降の日本・米国政治経済年表</h1>
 
+<h2>2000年</h2>
+
 <div class="year-table-container">
 <table class="year-table">
 <colgroup>
@@ -520,6 +522,7 @@ layout: default
 </tr>
 </tbody>
 </table>
+</div>
 ---
 
 ## その他重要な法改正・制度変更
